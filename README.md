@@ -1,91 +1,135 @@
 # MongoDB HA (Replication) Test with Pymongo
 
 
-## 1 实验环境搭建
+## 1 Environment Setup
 
-三台Ubuntu 14.04 64bit Server。
+One CentOS 7 machine
 
-```
-$ lsb_release -a
-No LSB modules are available.
-Distributor ID: Ubuntu
-Description:    Ubuntu 14.04.1 LTS
-Release:        14.04
-Codename:       trusty
+``` bash
+$ more /etc/redhat-release 
+CentOS Linux release 7.2.1511 (Core)
 ```
 
-Mongodb version db version v2.6.7.
+Mongodb version
 
-Pymongo version 2.7
+``` bash
+$ mongod --version
+db version v3.2.6
+git version: 05552b562c7a0b3143a729aaa0838e558dc49b25
+OpenSSL version: OpenSSL 1.0.1e-fips 11 Feb 2013
+allocator: tcmalloc
+modules: none
+build environment:
+    distmod: rhel70
+    distarch: x86_64
+    target_arch: x86_64
+```
+
+Pymongo version
+
+``` bash
+>>> import pymongo
+>>> pymongo.version
+'3.2'
+>>> 
+```
 
 
 ### 1.1 Install mongodb
 
-在三台机器上安装mongodb
-
-```
-$ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-$ echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' | sudo tee /etc/apt/sources.list.d/mongodb.list
-$ sudo apt-get update
-$ sudo apt-get install -y mongodb-org
-```
+Please see https://docs.mongodb.com/manual/tutorial/install-mongodb-on-red-hat/
 
 ### 1.2 Configure mongodb
 
-我们要配置一个三个节点的Replication，如下所示：
+We will configure three nodes replication in one machine，like:
 
 ![main](_image/1.png)
 
-#### 1.2.1 三个节点能相互通信，配置DNS。
+1) Prepare three mongodb config file
 
-三台机器的hostname分别为：`mongodb1` `mongodb2` `mongodb3`
-
-配置host：
-```
-$ more /etc/hosts
-127.0.0.1       localhost
-10.75.44.10 mongodb1
-10.75.44.11 mongodb2
-10.75.44.12 mongodb3
+``` bash
+$ ls /etc/ | grep mongo
+mongod1.conf
+mongod2.conf
+mongod3.conf
 ```
 
-保证之间能相互ping通：
+Each config file is:
+
+``` bash
+$ more /etc/mongod1.conf 
+# mongod.conf
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb1/mongod.log
+
+storage:
+  dbPath: /var/lib/mongo1
+  journal:
+    enabled: true
+    
+processManagement:
+  fork: true  # fork and run in background
+  pidFilePath: /var/run/mongodb1/mongod.pid  # location of pidfile
+
+net:
+  port: 27017
+
+replication:
+  replSetName: rs0
+
+$ more /etc/mongod2.conf 
+# mongod.conf
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb2/mongod.log
+
+storage:
+  dbPath: /var/lib/mongo2
+  journal:
+    enabled: true
+    
+processManagement:
+  fork: true  # fork and run in background
+  pidFilePath: /var/run/mongodb2/mongod.pid  # location of pidfile
+
+net:
+  port: 27018
+
+replication:
+  replSetName: rs0
+
+$ more /etc/mongod3.conf 
+# mongod.conf
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb3/mongod.log
+
+storage:
+  dbPath: /var/lib/mongo3
+  journal:
+    enabled: true
+    
+processManagement:
+  fork: true  # fork and run in background
+  pidFilePath: /var/run/mongodb3/mongod.pid  # location of pidfile
+
+net:
+  port: 27019
+
+replication:
+  replSetName: rs0
 ```
-$ ping mongodb1
-PING mongodb1 (10.75.44.10) 56(84) bytes of data.
-64 bytes from mongodb1 (10.75.44.10): icmp_seq=1 ttl=64 time=0.037 ms
-^C
---- mongodb1 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.037/0.037/0.037/0.000 ms
-penxiao@mongodb1:~$ ping mongodb2
-PING mongodb2 (10.75.44.11) 56(84) bytes of data.
-64 bytes from mongodb2 (10.75.44.11): icmp_seq=1 ttl=64 time=0.277 ms
-^C
---- mongodb2 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.277/0.277/0.277/0.000 ms
-penxiao@mongodb1:~$ ping mongodb3
-PING mongodb3 (10.75.44.12) 56(84) bytes of data.
-64 bytes from mongodb3 (10.75.44.12): icmp_seq=1 ttl=64 time=0.193 ms
-^C
---- mongodb3 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.193/0.193/0.193/0.000 ms
-```
 
-#### 1.2.2. 配置mongodb
-
-尽量使用MongoDB默认端口`27017`. 使用`bind_ip`配置选项配置绑定的IP地址，能让三个节点相互访问。
+Start 3 mongodb instances:
 
 
-1) 启动三个mongodb进程
-
-修改三台host的mongodb1的配置： 添加一个相同的replicate set的名字:`rs1`。
-```
-$ more /etc/mongod.conf
-replSet=rs1
-```
 
 启动三台host的mongod进程
 
