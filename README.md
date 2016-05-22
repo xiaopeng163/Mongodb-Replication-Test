@@ -127,157 +127,143 @@ replication:
   replSetName: rs0
 ```
 
-Start 3 mongodb instances:
+### 1.3 Start 3 mongodb instances and init them
 
-
-
-启动三台host的mongod进程
+``` bash
+$ sudo /usr/bin/mongod -f /etc/mongod1.conf
+$ sudo /usr/bin/mongod -f /etc/mongod2.conf
+$ sudo /usr/bin/mongod -f /etc/mongod3.conf
 
 ```
-$ sudo service mongod start/restart
+
+Connect to one of your mongod instances through the mongo shell. MongoDB initiates a set that consists of the current member and that uses the default replica set configuration.
+
+### 1.4 Add the remaining members to the replica set.
+
+``` bash
+rs.add("127.0.0.1:27018")
+rs.add("127.0.0.1:27019")
 ```
 
+through `rs.status` we can see the status of the replica set
 
-2) 然后进到mongodb1的mongo shell里初始化配置。
+``` bash
+rs0:PRIMARY> rs.status()
+{
+        "set" : "rs0",
+        "date" : ISODate("2016-05-22T04:45:22.195Z"),
+        "myState" : 1,
+        "term" : NumberLong(3),
+        "heartbeatIntervalMillis" : NumberLong(2000),
+        "members" : [
+                {
+                        "_id" : 0,
+                        "name" : "127.0.0.1:27017",
+                        "health" : 1,
+                        "state" : 1,
+                        "stateStr" : "PRIMARY",
+                        "uptime" : 166805,
+                        "optime" : {
+                                "ts" : Timestamp(1463737764, 8),
+                                "t" : NumberLong(3)
+                        },
+                        "optimeDate" : ISODate("2016-05-20T09:49:24Z"),
+                        "electionTime" : Timestamp(1463725527, 1),
+                        "electionDate" : ISODate("2016-05-20T06:25:27Z"),
+                        "configVersion" : 3,
+                        "self" : true
+                },
+                {
+                        "_id" : 1,
+                        "name" : "127.0.0.1:27018",
+                        "health" : 1,
+                        "state" : 2,
+                        "stateStr" : "SECONDARY",
+                        "uptime" : 166799,
+                        "optime" : {
+                                "ts" : Timestamp(1463737764, 8),
+                                "t" : NumberLong(3)
+                        },
+                        "optimeDate" : ISODate("2016-05-20T09:49:24Z"),
+                        "lastHeartbeat" : ISODate("2016-05-22T04:45:20.570Z"),
+                        "lastHeartbeatRecv" : ISODate("2016-05-22T04:45:20.570Z"),
+                        "pingMs" : NumberLong(0),
+                        "syncingTo" : "127.0.0.1:27019",
+                        "configVersion" : 3
+                },
+                {
+                        "_id" : 2,
+                        "name" : "127.0.0.1:27019",
+                        "health" : 1,
+                        "state" : 2,
+                        "stateStr" : "SECONDARY",
+                        "uptime" : 166794,
+                        "optime" : {
+                                "ts" : Timestamp(1463737764, 8),
+                                "t" : NumberLong(3)
+                        },
+                        "optimeDate" : ISODate("2016-05-20T09:49:24Z"),
+                        "lastHeartbeat" : ISODate("2016-05-22T04:45:21.356Z"),
+                        "lastHeartbeatRecv" : ISODate("2016-05-22T04:45:21.356Z"),
+                        "pingMs" : NumberLong(0),
+                        "syncingTo" : "127.0.0.1:27017",
+                        "configVersion" : 3
+                }
+        ],
+        "ok" : 1
+}
+rs0:PRIMARY> 
 ```
-penxiao@mongodb1:~$ mongo
-MongoDB shell version: 2.6.7
+
+### 1.5 Add authentication
+
+1) Create the keyfile your deployment will use to authenticate to members to each other.
+
+``` bash
+$ openssl rand -base64 741 > /home/mongodb/mongodb-keyfile
+$ chmod 600 mongodb-keyfile
+```
+	
+2)Enable authentication for each member of the sharded cluster or replica set.
+
+In each replica member's configure file, please add this:
+
+```
+security:
+  keyFile: /home/mongodb/mongodb-keyfile
+```
+If the replica members are in different machines, Pleas copy the key file to the host machine where the replica member located in.
+
+3) Create user administrator
+
+```
+use admin
+db.createUser(
+  {
+    user: "myUserAdmin",
+    pwd: "abc123",
+    roles: [ { role: "userAdminAnyDatabase", db: "admin" } ]
+  }
+)
+```
+
+4) Restart all mongodb instances
+
+```
+$ mongo
+MongoDB shell version: 3.2.6
 connecting to: test
-> 
-> 
-> use adminuse admin
-switched to db admin
-> rs.conf()rs.conf()
-null
-> rs.status()
+rs0:PRIMARY> rs.status()
 {
-        "startupStatus" : 3,
-        "info" : "run rs.initiate(...) if not yet done for the set",
         "ok" : 0,
-        "errmsg" : "can't get local.system.replset config from self or any seed (EMPTYCONFIG)"
+        "errmsg" : "not authorized on admin to execute command { replSetGetStatus: 1.0 }",
+        "code" : 13
 }
-> 
-> 
-> rs.initiate()
-{
-        "info2" : "no configuration explicitly specified -- making one",
-        "me" : "mongodb1:27017",
-        "info" : "Config now saved locally.  Should come online in about a minute.",
-        "ok" : 1
-}
-> rs.status()
-{
-        "set" : "rs1",
-        "date" : ISODate("2015-01-16T02:45:35Z"),
-        "myState" : 1,
-        "members" : [
-                {
-                        "_id" : 0,
-                        "name" : "mongodb1:27017",
-                        "health" : 1,
-                        "state" : 1,
-                        "stateStr" : "PRIMARY",
-                        "uptime" : 510,
-                        "optime" : Timestamp(1421376326, 1),
-                        "optimeDate" : ISODate("2015-01-16T02:45:26Z"),
-                        "electionTime" : Timestamp(1421376326, 2),
-                        "electionDate" : ISODate("2015-01-16T02:45:26Z"),
-                        "self" : true
-                }
-        ],
-        "ok" : 1
-}
-rs1:PRIMARY> 
+rs0:PRIMARY> use admin
+switched to db admin
+rs0:PRIMARY> db.auth("myUserAdmin","abc123")
+1
 ```
-
-可以看到此时因为只有一个member，并且本身就是`PRIMARY`.
-
-
-2) 添加member
-
-把另外两台host添加进来。
-```
-rs1:PRIMARY> rs.add('mongodb2')
-{ "ok" : 1 }
-rs1:PRIMARY> rs.add('mongodb3')
-{ "ok" : 1 }
-rs1:PRIMARY>
-rs1:PRIMARY> rs.conf()
-{
-        "_id" : "rs1",
-        "version" : 3,
-        "members" : [
-                {
-                        "_id" : 0,
-                        "host" : "mongodb1:27017"
-                },
-                {
-                        "_id" : 1,
-                        "host" : "mongodb2:27017"
-                },
-                {
-                        "_id" : 2,
-                        "host" : "mongodb3:27017"
-                }
-        ]
-}
-rs1:PRIMARY> rs.status()
-{
-        "set" : "rs1",
-        "date" : ISODate("2015-01-16T02:48:36Z"),
-        "myState" : 1,
-        "members" : [
-                {
-                        "_id" : 0,
-                        "name" : "mongodb1:27017",
-                        "health" : 1,
-                        "state" : 1,
-                        "stateStr" : "PRIMARY",
-                        "uptime" : 691,
-                        "optime" : Timestamp(1421376444, 1),
-                        "optimeDate" : ISODate("2015-01-16T02:47:24Z"),
-                        "electionTime" : Timestamp(1421376326, 2),
-                        "electionDate" : ISODate("2015-01-16T02:45:26Z"),
-                        "self" : true
-                },
-                {
-                        "_id" : 1,
-                        "name" : "mongodb2:27017",
-                        "health" : 1,
-                        "state" : 2,
-                        "stateStr" : "SECONDARY",
-                        "uptime" : 99,
-                        "optime" : Timestamp(1421376444, 1),
-                        "optimeDate" : ISODate("2015-01-16T02:47:24Z"),
-                        "lastHeartbeat" : ISODate("2015-01-16T02:48:35Z"),
-                        "lastHeartbeatRecv" : ISODate("2015-01-16T02:48:35Z"),
-                        "pingMs" : 0,
-                        "syncingTo" : "mongodb1:27017"
-                },
-                {
-                        "_id" : 2,
-                        "name" : "mongodb3:27017",
-                        "health" : 1,
-                        "state" : 2,
-                        "stateStr" : "SECONDARY",
-                        "uptime" : 72,
-                        "optime" : Timestamp(1421376444, 1),
-                        "optimeDate" : ISODate("2015-01-16T02:47:24Z"),
-                        "lastHeartbeat" : ISODate("2015-01-16T02:48:36Z"),
-                        "lastHeartbeatRecv" : ISODate("2015-01-16T02:48:35Z"),
-                        "pingMs" : 0,
-                        "syncingTo" : "mongodb1:27017"
-                }
-        ],
-        "ok" : 1
-}
-rs1:PRIMARY>
-```
-
-结果可以看到mongodb1是`PRIMARY`，其它两个host是`SECONDARY`。
-
-至此mongodb的配置完成了。
-
 
 ## 2 测试内容
 
