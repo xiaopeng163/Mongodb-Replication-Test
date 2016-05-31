@@ -265,12 +265,11 @@ rs0:PRIMARY> db.auth("myUserAdmin","abc123")
 1
 ```
 
-## 2 测试内容
+## 2 Testing
 
 ### 2.1 Test case 1: Basic operations
 
-测试对Replica Set的基本连接，以及基本写操作，和Failover后的恢复操作，
-使用[pymongo](http://api.mongodb.org/python/current/examples/high_availability.html)
+We use [pymongo](http://api.mongodb.org/python/current/examples/high_availability.html) to do some basic testing.
 
 ![Failover](_image/election.png)
 
@@ -283,11 +282,11 @@ MongoClient([u'mongodb2:27017', u'mongodb1:27017', u'mongodb3:27017'])
 >>> 
 ```
 
-对数据库进行基本的写操作：
+Write operation：
 
 ``` python
 >>> from pymongo import MongoClient
->>> db = MongoClient("10.75.44.10", replicaset='rs1').demo
+>>> db = MongoClient("127.0.0.1", replicaset='rs1').demo
 >>> db
 Database(MongoClient([u'mongodb2:27017', u'mongodb1:27017', u'mongodb3:27017']), u'demo')
 >>> db.connection.host
